@@ -60,12 +60,16 @@ export interface BookLayout {
   gapPercent: number;
   scrolled: boolean;
   disableClick: boolean;
+  continuousScroll: boolean;
   maxColumnCount: number;
   maxInlineSize: number;
   maxBlockSize: number;
   animated: boolean;
   writingMode: WritingMode;
   vertical: boolean;
+  rtl: boolean;
+  doubleBorder: boolean;
+  borderColor: string;
 }
 
 export interface BookStyle {

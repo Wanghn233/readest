@@ -1,5 +1,42 @@
 {
   "releases": {
+    "0.9.22": {
+      "date": "2025-03-16",
+      "notes": [
+        "Add theme color editor for more customization",
+        "Add border frame for vertical layout",
+        "Fix layout glitches on macOS in scroll mode",
+        "Various fixes and enhancements on translator, footnote, and scrollbar"
+      ]
+    },
+    "0.9.21": {
+      "date": "2025-03-10",
+      "notes": [
+        "Fix column height in vertical layout on mobile",
+        "Fix drag handle height not constant on mobile",
+        "Add fullscreen option on desktop",
+        "Add drag and drop to import books on desktop",
+        "Various fixes and enhancements on updater, footerbar and note"
+      ]
+    },
+    "0.9.20": {
+      "date": "2025-03-10",
+      "notes": [
+        "Fix column height in vertical layout on mobile",
+        "Fix drag handle height not constant on mobile",
+        "Add fullscreen option on desktop",
+        "Add drag and drop to import books on desktop",
+        "Various fixes and enhancements on updater, footerbar and note"
+      ]
+    },
+    "0.9.19": {
+      "date": "2025-03-07",
+      "notes": [
+        "Support custom CSS for Reader UI",
+        "Initial support of RTL layout for Arabic and Hebrew books",
+        "Various fixes and enhancements on layout and sync"
+      ]
+    },
     "0.9.18": {
       "date": "2025-02-26",
       "notes": [

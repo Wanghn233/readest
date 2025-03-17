@@ -2,16 +2,16 @@ import React, { useEffect, useRef, useState } from 'react';
 import { BookDoc, getDirection } from '@/libs/document';
 import { BookConfig } from '@/types/book';
 import { FoliateView, wrappedFoliateView } from '@/types/view';
+import { useThemeStore } from '@/store/themeStore';
 import { useReaderStore } from '@/store/readerStore';
 import { useParallelViewStore } from '@/store/parallelViewStore';
 import { useClickEvent, useTouchEvent } from '../hooks/useIframeEvents';
 import { useFoliateEvents } from '../hooks/useFoliateEvents';
 import { useProgressSync } from '../hooks/useProgressSync';
 import { useProgressAutoSave } from '../hooks/useProgressAutoSave';
-import { useAutoHideScrollbar } from '../hooks/useAutoHideScrollbar';
-import { getStyles, mountAdditionalFonts } from '@/utils/style';
-import { getBookDirFromWritingMode } from '@/utils/book';
-import { useTheme } from '@/hooks/useTheme';
+import { applyColorScheme, getStyles, mountAdditionalFonts } from '@/utils/style';
+import { getBookDirFromLanguage, getBookDirFromWritingMode } from '@/utils/book';
+import { useUICSS } from '@/hooks/useUICSS';
 import {
   handleKeydown,
   handleMousedown,
@@ -35,7 +35,8 @@ const FoliateViewer: React.FC<{
   const { getView, setView: setFoliateView, setProgress } = useReaderStore();
   const { getViewSettings, setViewSettings } = useReaderStore();
   const { getParallels } = useParallelViewStore();
-  const { themeCode } = useTheme();
+  const { themeCode, isDarkMode } = useThemeStore();
+  const viewSettings = getViewSettings(bookKey)!;
 
   const [toastMessage, setToastMessage] = useState('');
   useEffect(() => {
@@ -43,6 +44,7 @@ const FoliateViewer: React.FC<{
     return () => clearTimeout(timer);
   }, [toastMessage]);
 
+  useUICSS(bookKey, viewSettings);
   useProgressSync(bookKey);
   useProgressAutoSave(bookKey);
 
@@ -51,19 +53,18 @@ const FoliateViewer: React.FC<{
     setProgress(bookKey, detail.cfi, detail.tocItem, detail.section, detail.location, detail.range);
   };
 
-  const { shouldAutoHideScrollbar, handleScrollbarAutoHide } = useAutoHideScrollbar();
   const docLoadHandler = (event: Event) => {
     const detail = (event as CustomEvent).detail;
     console.log('doc loaded:', detail);
     if (detail.doc) {
       const writingDir = viewRef.current?.renderer.setStyles && getDirection(detail.doc);
       const viewSettings = getViewSettings(bookKey)!;
-      viewSettings.vertical = writingDir?.vertical || false;
+      viewSettings.vertical =
+        writingDir?.vertical || viewSettings.writingMode.includes('vertical') || false;
+      viewSettings.rtl = writingDir?.rtl || viewSettings.writingMode.includes('rl') || false;
       setViewSettings(bookKey, viewSettings);
-      if (viewSettings.scrolled && shouldAutoHideScrollbar) {
-        handleScrollbarAutoHide(detail.doc);
-      }
 
+      applyColorScheme(detail.doc, isDarkMode);
       mountAdditionalFonts(detail.doc);
 
       if (!detail.doc.isEventListenersAdded) {
@@ -86,7 +87,8 @@ const FoliateViewer: React.FC<{
 
     if (detail.reason === 'scroll') {
       const renderer = viewRef.current?.renderer;
-      if (renderer) {
+      const viewSettings = getViewSettings(bookKey)!;
+      if (renderer && viewSettings.continuousScroll) {
         if (renderer.start <= 0) {
           viewRef.current?.prev(1);
           // sometimes viewSize has subpixel value that the end never reaches
@@ -120,10 +122,13 @@ const FoliateViewer: React.FC<{
   useEffect(() => {
     if (viewRef.current && viewRef.current.renderer) {
       const viewSettings = getViewSettings(bookKey)!;
-      viewRef.current.renderer.setStyles?.(getStyles(viewSettings, themeCode));
+      viewRef.current.renderer.setStyles?.(getStyles(viewSettings));
+      // Safari does not recognize color-scheme from the root document in iframe
+      const doc = viewRef.current.renderer.getContents()[0]!.doc;
+      applyColorScheme(doc, isDarkMode);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [themeCode]);
+  }, [themeCode, isDarkMode]);
 
   useEffect(() => {
     if (isViewCreated.current) return;
@@ -133,21 +138,27 @@ const FoliateViewer: React.FC<{
       console.log('Opening book', bookKey);
       await import('foliate-js/view.js');
       const view = wrappedFoliateView(document.createElement('foliate-view') as FoliateView);
+      view.id = `foliate-view-${bookKey}`;
       document.body.append(view);
       containerRef.current?.appendChild(view);
+
+      const writingMode = viewSettings.writingMode;
+      if (writingMode) {
+        const settingsDir = getBookDirFromWritingMode(writingMode);
+        const languageDir = getBookDirFromLanguage(bookDoc.metadata.language);
+        if (settingsDir !== 'auto') {
+          bookDoc.dir = settingsDir;
+        } else if (languageDir !== 'auto') {
+          bookDoc.dir = languageDir;
+        }
+      }
 
       await view.open(bookDoc);
       // make sure we can listen renderer events after opening book
       viewRef.current = view;
       setFoliateView(bookKey, view);
 
-      const viewSettings = getViewSettings(bookKey)!;
-      view.renderer.setStyles?.(getStyles(viewSettings, themeCode));
-
-      const writingMode = viewSettings.writingMode;
-      if (writingMode) {
-        view.book.dir = getBookDirFromWritingMode(writingMode);
-      }
+      view.renderer.setStyles?.(getStyles(viewSettings));
 
       const isScrolled = viewSettings.scrolled!;
       const marginPx = viewSettings.marginPx!;

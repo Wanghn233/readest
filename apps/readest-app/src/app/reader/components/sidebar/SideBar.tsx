@@ -8,9 +8,10 @@ import { useReaderStore } from '@/store/readerStore';
 import { useSidebarStore } from '@/store/sidebarStore';
 import { BookSearchResult } from '@/types/book';
 import { eventDispatcher } from '@/utils/event';
+import { getBookDirFromLanguage } from '@/utils/book';
 import { useEnv } from '@/context/EnvContext';
-import { useTheme } from '@/hooks/useTheme';
 import { useDrag } from '@/hooks/useDrag';
+import { useThemeStore } from '@/store/themeStore';
 import SidebarHeader from './Header';
 import SidebarContent from './Content';
 import BookCard from './BookCard';
@@ -28,11 +29,11 @@ const SideBar: React.FC<{
   onGoToLibrary: () => void;
 }> = ({ onGoToLibrary }) => {
   const { appService } = useEnv();
-  const { updateAppTheme } = useTheme();
+  const { updateAppTheme } = useThemeStore();
   const { settings } = useSettingsStore();
   const { sideBarBookKey } = useSidebarStore();
   const { getBookData } = useBookDataStore();
-  const { getView } = useReaderStore();
+  const { getView, getViewSettings } = useReaderStore();
   const [isSearchBarVisible, setIsSearchBarVisible] = useState(false);
   const [searchResults, setSearchResults] = useState<BookSearchResult[] | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -162,11 +163,13 @@ const SideBar: React.FC<{
 
   if (!sideBarBookKey) return null;
 
+  const viewSettings = getViewSettings(sideBarBookKey);
   const bookData = getBookData(sideBarBookKey);
   if (!bookData || !bookData.book || !bookData.bookDoc) {
     return null;
   }
   const { book, bookDoc } = bookData;
+  const languageDir = getBookDirFromLanguage(bookDoc.metadata.language);
 
   return isSideBarVisible ? (
     <>
@@ -178,6 +181,7 @@ const SideBar: React.FC<{
           appService?.hasRoundedWindow && 'rounded-window-top-left rounded-window-bottom-left',
           !isSideBarPinned && 'shadow-2xl',
         )}
+        dir={viewSettings?.rtl && languageDir === 'rtl' ? 'rtl' : 'ltr'}
         style={{
           width: `${sideBarWidth}`,
           maxWidth: `${MAX_SIDEBAR_WIDTH * 100}%`,

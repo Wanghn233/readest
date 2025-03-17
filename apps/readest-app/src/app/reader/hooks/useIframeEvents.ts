@@ -59,6 +59,7 @@ export const useClickEvent = (
             }
           }
         } else if (msg.data.type === 'iframe-wheel' && !viewSettings.scrolled) {
+          // The wheel event is handled by the iframe itself in scrolled mode.
           const { deltaY } = msg.data;
           if (deltaY > 0) {
             viewRef.current?.next(1);

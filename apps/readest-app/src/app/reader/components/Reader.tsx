@@ -6,6 +6,7 @@ import { useEffect, Suspense, useRef } from 'react';
 
 import { useEnv } from '@/context/EnvContext';
 import { useTheme } from '@/hooks/useTheme';
+import { useThemeStore } from '@/store/themeStore';
 import { useLibraryStore } from '@/store/libraryStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import { useScreenWakeLock } from '@/hooks/useScreenWakeLock';
@@ -16,10 +17,11 @@ import ReaderContent from './ReaderContent';
 const Reader: React.FC<{ ids?: string }> = ({ ids }) => {
   const { envConfig, appService } = useEnv();
   const { settings, setSettings } = useSettingsStore();
-  const { library, setLibrary } = useLibraryStore();
+  const { getVisibleLibrary, setLibrary } = useLibraryStore();
   const isInitiating = useRef(false);
 
-  const { updateAppTheme } = useTheme();
+  const { updateAppTheme } = useThemeStore();
+  useTheme();
   useScreenWakeLock(settings.screenWakeLock);
 
   useEffect(() => {
@@ -38,7 +40,7 @@ const Reader: React.FC<{ ids?: string }> = ({ ids }) => {
   }, []);
 
   return (
-    library.length > 0 &&
+    getVisibleLibrary().length > 0 &&
     settings.globalReadSettings && (
       <div
         className={clsx(

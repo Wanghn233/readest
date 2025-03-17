@@ -4,7 +4,6 @@ import { useReaderStore } from '@/store/readerStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import { useTranslation } from '@/hooks/useTranslation';
 import { getStyles } from '@/utils/style';
-import { useTheme } from '@/hooks/useTheme';
 import cssbeautify from 'cssbeautify';
 import cssValidate from '@/utils/css';
 
@@ -13,10 +12,10 @@ const MiscPanel: React.FC<{ bookKey: string }> = ({ bookKey }) => {
   const { settings, isFontLayoutSettingsGlobal, setSettings } = useSettingsStore();
   const { getView, getViewSettings, setViewSettings } = useReaderStore();
   const viewSettings = getViewSettings(bookKey)!;
-  const { themeCode } = useTheme();
 
   const [animated, setAnimated] = useState(viewSettings.animated!);
   const [isDisableClick, setIsDisableClick] = useState(viewSettings.disableClick!);
+  const [isContinuousScroll, setIsContinuousScroll] = useState(viewSettings.continuousScroll!);
   const [draftStylesheet, setDraftStylesheet] = useState(viewSettings.userStylesheet!);
   const [draftStylesheetSaved, setDraftStylesheetSaved] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -52,14 +51,14 @@ const MiscPanel: React.FC<{ bookKey: string }> = ({ bookKey }) => {
     setDraftStylesheet(formattedCSS);
     setDraftStylesheetSaved(true);
     viewSettings.userStylesheet = formattedCSS;
-    setViewSettings(bookKey, viewSettings);
+    setViewSettings(bookKey, { ...viewSettings });
 
     if (isFontLayoutSettingsGlobal) {
       settings.globalViewSettings.userStylesheet = formattedCSS;
       setSettings(settings);
     }
 
-    getView(bookKey)?.renderer.setStyles?.(getStyles(viewSettings, themeCode));
+    getView(bookKey)?.renderer.setStyles?.(getStyles(viewSettings));
   };
 
   const handleInput = (e: React.FormEvent<HTMLTextAreaElement>) => {
@@ -92,12 +91,22 @@ const MiscPanel: React.FC<{ bookKey: string }> = ({ bookKey }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isDisableClick]);
 
+  useEffect(() => {
+    viewSettings.continuousScroll = isContinuousScroll;
+    setViewSettings(bookKey, viewSettings);
+    if (isFontLayoutSettingsGlobal) {
+      settings.globalViewSettings.continuousScroll = isContinuousScroll;
+      setSettings(settings);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isContinuousScroll]);
+
   return (
     <div className='my-4 w-full space-y-6'>
       <div className='w-full'>
         <h2 className='mb-2 font-medium'>{_('Animation')}</h2>
         <div className='card border-base-200 bg-base-100 border shadow'>
-          <div className='divide-y'>
+          <div className='divide-base-200 divide-y'>
             <div className='config-item config-item-top config-item-bottom'>
               <span className=''>{_('Paging Animation')}</span>
               <input
@@ -114,8 +123,17 @@ const MiscPanel: React.FC<{ bookKey: string }> = ({ bookKey }) => {
       <div className='w-full'>
         <h2 className='mb-2 font-medium'>{_('Behavior')}</h2>
         <div className='card border-base-200 bg-base-100 border shadow'>
-          <div className='divide-y'>
-            <div className='config-item config-item-top config-item-bottom'>
+          <div className='divide-base-200 divide-y'>
+            <div className='config-item config-item-top'>
+              <span className=''>{_('Continuous Scroll')}</span>
+              <input
+                type='checkbox'
+                className='toggle'
+                checked={isContinuousScroll}
+                onChange={() => setIsContinuousScroll(!isContinuousScroll)}
+              />
+            </div>
+            <div className='config-item config-item-bottom'>
               <span className=''>{_('Disable Click-to-Flip')}</span>
               <input
                 type='checkbox'

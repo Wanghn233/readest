@@ -5,7 +5,14 @@ import {
   FALLBACK_FONTS,
 } from '@/services/constants';
 import { ViewSettings } from '@/types/book';
-import { Palette } from '@/styles/themes';
+import {
+  themes,
+  Palette,
+  ThemeMode,
+  CustomTheme,
+  generateLightPalette,
+  generateDarkPalette,
+} from '@/styles/themes';
 
 import fontfacesCSS from '!!raw-loader!../styles/fonts.css';
 import { getOSPlatform } from './misc';
@@ -126,6 +133,7 @@ const getLayoutStyles = (
   hyphenate: boolean,
   zoomLevel: number,
   writingMode: string,
+  vertical: boolean,
   bg: string,
   fg: string,
   primary: string,
@@ -174,22 +182,22 @@ const getLayoutStyles = (
     color: ${fg};
     ${writingMode === 'auto' ? '' : `writing-mode: ${writingMode};`}
     text-align: var(--default-text-align);
+    max-height: unset;
     background-color: var(--theme-bg-color, transparent);
     background: var(--background-set, none);
   }
   body *:not(a):not(#b1):not(#b1 *):not(#b2):not(#b2 *):not(.bg):not(.bg *):not(.vol):not(.vol *):not(.background):not(.background *) {
-    border-color: currentColor !important;
-    ${bg === '#ffffff' ? '' : `color: inherit;`}
     ${bg === '#ffffff' ? '' : `background-color: ${bg} !important;`}
   }
   body {
+    overflow: unset;
     zoom: ${zoomLevel};
   }
   svg, img {
     background-color: transparent !important;
   }
   p, li, blockquote, dd {
-    margin: ${paragraphMargin}em 0;
+    margin: ${vertical ? `0 ${paragraphMargin}em` : `${paragraphMargin}em 0`};
     line-height: ${lineSpacing} ${overrideLayout ? '!important' : ''};
     word-spacing: ${wordSpacing}px ${overrideLayout ? '!important' : ''};
     letter-spacing: ${letterSpacing}px ${overrideLayout ? '!important' : ''};
@@ -224,8 +232,13 @@ const getLayoutStyles = (
     display: none;
   }
 
+  /* Now begins really dirty hacks to fix some badly designed epubs */
   .calibre {
     color: unset;
+  }
+
+  .chapterHeader {
+    border-color: unset;
   }
 `;
 
@@ -252,7 +265,46 @@ export interface ThemeCode {
   palette: Palette;
 }
 
-export const getStyles = (viewSettings: ViewSettings, themeCode: ThemeCode) => {
+export const getThemeCode = () => {
+  let themeMode = 'auto';
+  let themeColor = 'default';
+  let systemIsDarkMode = false;
+  let customThemes: CustomTheme[] = [];
+  if (typeof window !== 'undefined') {
+    themeColor = localStorage.getItem('themeColor') || 'default';
+    themeMode = localStorage.getItem('themeMode') as ThemeMode;
+    customThemes = JSON.parse(localStorage.getItem('customThemes') || '[]');
+    systemIsDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  }
+  const isDarkMode = themeMode === 'dark' || (themeMode === 'auto' && systemIsDarkMode);
+  let currentTheme = themes.find((theme) => theme.name === themeColor);
+  if (!currentTheme) {
+    const customTheme = customThemes.find((theme) => theme.name === themeColor);
+    if (customTheme) {
+      currentTheme = {
+        name: customTheme.name,
+        label: customTheme.label,
+        colors: {
+          light: generateLightPalette(customTheme.colors.light),
+          dark: generateDarkPalette(customTheme.colors.dark),
+        },
+      };
+    }
+  }
+  if (!currentTheme) currentTheme = themes[0];
+  const defaultPalette = isDarkMode ? currentTheme!.colors.dark : currentTheme!.colors.light;
+  return {
+    bg: defaultPalette['base-100'],
+    fg: defaultPalette['base-content'],
+    primary: defaultPalette.primary,
+    palette: defaultPalette,
+  } as ThemeCode;
+};
+
+export const getStyles = (viewSettings: ViewSettings, themeCode?: ThemeCode) => {
+  if (!themeCode) {
+    themeCode = getThemeCode();
+  }
   const layoutStyles = getLayoutStyles(
     viewSettings.overrideLayout!,
     viewSettings.paragraphMargin!,
@@ -264,6 +316,7 @@ export const getStyles = (viewSettings: ViewSettings, themeCode: ThemeCode) => {
     viewSettings.hyphenation!,
     viewSettings.zoomLevel! / 100.0,
     viewSettings.writingMode!,
+    viewSettings.vertical!,
     themeCode.bg,
     themeCode.fg,
     themeCode.primary,
@@ -305,4 +358,9 @@ export const mountAdditionalFonts = (document: Document) => {
   const style = document.createElement('style');
   style.textContent = getAdditionalFontFaces();
   document.head.appendChild(style);
+};
+
+export const applyColorScheme = (document: Document, isDarkMode: boolean) => {
+  const colorScheme = isDarkMode ? 'dark' : 'light';
+  document.documentElement.style.setProperty('color-scheme', colorScheme);
 };

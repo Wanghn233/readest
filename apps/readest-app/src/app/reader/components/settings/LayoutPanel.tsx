@@ -1,15 +1,17 @@
 import React, { useEffect, useState } from 'react';
 import { MdOutlineAutoMode } from 'react-icons/md';
-import { MdOutlineTextRotationDown, MdOutlineTextRotationNone } from 'react-icons/md';
+import { MdOutlineTextRotationNone, MdTextRotateVertical } from 'react-icons/md';
+import { TbTextDirectionRtl } from 'react-icons/tb';
 
 import { useSettingsStore } from '@/store/settingsStore';
 import { useReaderStore } from '@/store/readerStore';
 import { useBookDataStore } from '@/store/bookDataStore';
 import { useTranslation } from '@/hooks/useTranslation';
-import { useTheme } from '@/hooks/useTheme';
+import { isCJKEnv } from '@/utils/misc';
 import { getStyles } from '@/utils/style';
 import { getMaxInlineSize } from '@/utils/config';
 import { getBookDirFromWritingMode, getBookLangCode } from '@/utils/book';
+import { MIGHT_BE_RTL_LANGS } from '@/services/constants';
 import NumberInput from './NumberInput';
 
 const LayoutPanel: React.FC<{ bookKey: string }> = ({ bookKey }) => {
@@ -20,7 +22,6 @@ const LayoutPanel: React.FC<{ bookKey: string }> = ({ bookKey }) => {
   const view = getView(bookKey);
   const bookData = getBookData(bookKey)!;
   const viewSettings = getViewSettings(bookKey)!;
-  const { themeCode } = useTheme();
 
   const [paragraphMargin, setParagraphMargin] = useState(viewSettings.paragraphMargin!);
   const [lineHeight, setLineHeight] = useState(viewSettings.lineHeight!);
@@ -36,6 +37,9 @@ const LayoutPanel: React.FC<{ bookKey: string }> = ({ bookKey }) => {
   const [maxBlockSize, setMaxBlockSize] = useState(viewSettings.maxBlockSize!);
   const [writingMode, setWritingMode] = useState(viewSettings.writingMode!);
   const [overrideLayout, setOverrideLayout] = useState(viewSettings.overrideLayout!);
+  const [isScrolledMode, setScrolledMode] = useState(viewSettings.scrolled!);
+  const [doubleBorder, setDoubleBorder] = useState(viewSettings.doubleBorder!);
+  const [borderColor, setBorderColor] = useState(viewSettings.borderColor!);
 
   useEffect(() => {
     viewSettings.paragraphMargin = paragraphMargin;
@@ -44,7 +48,7 @@ const LayoutPanel: React.FC<{ bookKey: string }> = ({ bookKey }) => {
       settings.globalViewSettings.paragraphMargin = paragraphMargin;
       setSettings(settings);
     }
-    view?.renderer.setStyles?.(getStyles(viewSettings, themeCode));
+    view?.renderer.setStyles?.(getStyles(viewSettings));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [paragraphMargin]);
 
@@ -55,7 +59,7 @@ const LayoutPanel: React.FC<{ bookKey: string }> = ({ bookKey }) => {
       settings.globalViewSettings.lineHeight = lineHeight;
       setSettings(settings);
     }
-    view?.renderer.setStyles?.(getStyles(viewSettings, themeCode));
+    view?.renderer.setStyles?.(getStyles(viewSettings));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lineHeight]);
 
@@ -66,7 +70,7 @@ const LayoutPanel: React.FC<{ bookKey: string }> = ({ bookKey }) => {
       settings.globalViewSettings.wordSpacing = wordSpacing;
       setSettings(settings);
     }
-    view?.renderer.setStyles?.(getStyles(viewSettings, themeCode));
+    view?.renderer.setStyles?.(getStyles(viewSettings));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wordSpacing]);
 
@@ -77,7 +81,7 @@ const LayoutPanel: React.FC<{ bookKey: string }> = ({ bookKey }) => {
       settings.globalViewSettings.letterSpacing = letterSpacing;
       setSettings(settings);
     }
-    view?.renderer.setStyles?.(getStyles(viewSettings, themeCode));
+    view?.renderer.setStyles?.(getStyles(viewSettings));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [letterSpacing]);
 
@@ -88,7 +92,7 @@ const LayoutPanel: React.FC<{ bookKey: string }> = ({ bookKey }) => {
       settings.globalViewSettings.textIndent = textIndent;
       setSettings(settings);
     }
-    view?.renderer.setStyles?.(getStyles(viewSettings, themeCode));
+    view?.renderer.setStyles?.(getStyles(viewSettings));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [textIndent]);
 
@@ -99,7 +103,7 @@ const LayoutPanel: React.FC<{ bookKey: string }> = ({ bookKey }) => {
       settings.globalViewSettings.fullJustification = fullJustification;
       setSettings(settings);
     }
-    view?.renderer.setStyles?.(getStyles(viewSettings, themeCode));
+    view?.renderer.setStyles?.(getStyles(viewSettings));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fullJustification]);
 
@@ -110,7 +114,7 @@ const LayoutPanel: React.FC<{ bookKey: string }> = ({ bookKey }) => {
       settings.globalViewSettings.hyphenation = hyphenation;
       setSettings(settings);
     }
-    view?.renderer.setStyles?.(getStyles(viewSettings, themeCode));
+    view?.renderer.setStyles?.(getStyles(viewSettings));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hyphenation]);
 
@@ -175,11 +179,22 @@ const LayoutPanel: React.FC<{ bookKey: string }> = ({ bookKey }) => {
 
   useEffect(() => {
     // global settings are not supported for writing mode
+    const prevWritingMode = viewSettings.writingMode;
     viewSettings.writingMode = writingMode;
+    if (writingMode.includes('vertical')) {
+      viewSettings.vertical = true;
+    }
     setViewSettings(bookKey, viewSettings);
     if (view) {
-      view.renderer.setStyles?.(getStyles(viewSettings, themeCode));
+      view.renderer.setStyles?.(getStyles(viewSettings));
       view.book.dir = getBookDirFromWritingMode(writingMode);
+    }
+    if (
+      prevWritingMode !== writingMode &&
+      (['horizontal-rl', 'vertical-rl'].includes(writingMode) ||
+        ['horizontal-rl', 'vertical-rl'].includes(prevWritingMode))
+    ) {
+      setTimeout(() => window.location.reload(), 100);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [writingMode]);
@@ -191,23 +206,71 @@ const LayoutPanel: React.FC<{ bookKey: string }> = ({ bookKey }) => {
       settings.globalViewSettings.overrideLayout = overrideLayout;
       setSettings(settings);
     }
-    view?.renderer.setStyles?.(getStyles(viewSettings, themeCode));
+    view?.renderer.setStyles?.(getStyles(viewSettings));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [overrideLayout]);
 
+  useEffect(() => {
+    viewSettings!.scrolled = isScrolledMode;
+    getView(bookKey)?.renderer.setAttribute('flow', isScrolledMode ? 'scrolled' : 'paginated');
+    getView(bookKey)?.renderer.setAttribute(
+      'max-inline-size',
+      `${getMaxInlineSize(viewSettings)}px`,
+    );
+    getView(bookKey)?.renderer.setStyles?.(getStyles(viewSettings!));
+    setViewSettings(bookKey, viewSettings!);
+    if (isFontLayoutSettingsGlobal) {
+      settings.globalViewSettings.scrolled = isScrolledMode;
+      setSettings(settings);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isScrolledMode]);
+
+  useEffect(() => {
+    viewSettings.doubleBorder = doubleBorder;
+    setViewSettings(bookKey, viewSettings);
+    if (isFontLayoutSettingsGlobal) {
+      settings.globalViewSettings.doubleBorder = doubleBorder;
+      setSettings(settings);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [doubleBorder]);
+
+  useEffect(() => {
+    viewSettings.borderColor = borderColor;
+    setViewSettings(bookKey, viewSettings);
+    if (isFontLayoutSettingsGlobal) {
+      settings.globalViewSettings.borderColor = borderColor;
+      setSettings(settings);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [borderColor]);
+
   const langCode = getBookLangCode(bookData.bookDoc?.metadata?.language);
-  const isCJKBook = langCode === 'zh' || langCode === 'ja' || langCode === 'ko';
+  const mightBeRTLBook = MIGHT_BE_RTL_LANGS.includes(langCode) || isCJKEnv();
 
   return (
     <div className='my-4 w-full space-y-6'>
-      {isCJKBook && (
+      <div className='w-full'>
+        <div className='flex items-center justify-between'>
+          <h2 className='font-medium'>{_('Scrolled Mode')}</h2>
+          <input
+            type='checkbox'
+            className='toggle'
+            checked={isScrolledMode}
+            onChange={() => setScrolledMode(!isScrolledMode)}
+          />
+        </div>
+      </div>
+
+      {mightBeRTLBook && (
         <div className='w-full'>
           <div className='flex items-center justify-between'>
             <h2 className='font-medium'>{_('Writing Mode')}</h2>
-            <div className='flex gap-2'>
+            <div className='flex gap-4'>
               <div className='lg:tooltip lg:tooltip-bottom' data-tip={_('Default')}>
                 <button
-                  className={`btn btn-ghost btn-circle ${writingMode === 'auto' ? 'btn-active bg-base-300' : ''}`}
+                  className={`btn btn-ghost btn-circle btn-sm ${writingMode === 'auto' ? 'btn-active bg-base-300' : ''}`}
                   onClick={() => setWritingMode('auto')}
                 >
                   <MdOutlineAutoMode />
@@ -216,7 +279,7 @@ const LayoutPanel: React.FC<{ bookKey: string }> = ({ bookKey }) => {
 
               <div className='lg:tooltip lg:tooltip-bottom' data-tip={_('Horizontal Direction')}>
                 <button
-                  className={`btn btn-ghost btn-circle ${writingMode === 'horizontal-tb' ? 'btn-active bg-base-300' : ''}`}
+                  className={`btn btn-ghost btn-circle btn-sm ${writingMode === 'horizontal-tb' ? 'btn-active bg-base-300' : ''}`}
                   onClick={() => setWritingMode('horizontal-tb')}
                 >
                   <MdOutlineTextRotationNone />
@@ -225,15 +288,57 @@ const LayoutPanel: React.FC<{ bookKey: string }> = ({ bookKey }) => {
 
               <div className='lg:tooltip lg:tooltip-bottom' data-tip={_('Vertical Direction')}>
                 <button
-                  className={`btn btn-ghost btn-circle ${writingMode === 'vertical-rl' ? 'btn-active bg-base-300' : ''}`}
+                  className={`btn btn-ghost btn-circle btn-sm ${writingMode === 'vertical-rl' ? 'btn-active bg-base-300' : ''}`}
                   onClick={() => setWritingMode('vertical-rl')}
                 >
-                  <MdOutlineTextRotationDown />
+                  <MdTextRotateVertical />
+                </button>
+              </div>
+
+              <div className='lg:tooltip lg:tooltip-bottom' data-tip={_('RTL Direction')}>
+                <button
+                  className={`btn btn-ghost btn-circle btn-sm ${writingMode === 'horizontal-rl' ? 'btn-active bg-base-300' : ''}`}
+                  onClick={() => setWritingMode('horizontal-rl')}
+                >
+                  <TbTextDirectionRtl />
                 </button>
               </div>
             </div>
           </div>
         </div>
+      )}
+
+      {viewSettings.vertical && (
+        <>
+          <div className='w-full'>
+            <div className='flex items-center justify-between'>
+              <h2 className='font-medium'>{_('Double Border')}</h2>
+              <input
+                type='checkbox'
+                className='toggle'
+                checked={doubleBorder}
+                onChange={() => setDoubleBorder(!doubleBorder)}
+              />
+            </div>
+          </div>
+
+          <div className='w-full'>
+            <div className='flex items-center justify-between'>
+              <h2 className='font-medium'>{_('Border Color')}</h2>
+              <div className='flex gap-4'>
+                <button
+                  className={`btn btn-circle btn-sm bg-red-300 hover:bg-red-500 ${borderColor === 'red' ? 'btn-active !bg-red-500' : ''}`}
+                  onClick={() => setBorderColor('red')}
+                ></button>
+
+                <button
+                  className={`btn btn-circle btn-sm bg-black/50 hover:bg-black ${borderColor === 'black' ? 'btn-active !bg-black' : ''}`}
+                  onClick={() => setBorderColor('black')}
+                ></button>
+              </div>
+            </div>
+          </div>
+        </>
       )}
 
       <div className='w-full'>
@@ -250,7 +355,6 @@ const LayoutPanel: React.FC<{ bookKey: string }> = ({ bookKey }) => {
               step={0.5}
             />
             <NumberInput
-              className='config-item-top'
               label={_('Line Spacing')}
               value={lineHeight}
               onChange={setLineHeight}
@@ -259,7 +363,6 @@ const LayoutPanel: React.FC<{ bookKey: string }> = ({ bookKey }) => {
               step={0.1}
             />
             <NumberInput
-              className='config-item-top'
               label={_('Word Spacing')}
               value={wordSpacing}
               onChange={setWordSpacing}
@@ -268,7 +371,6 @@ const LayoutPanel: React.FC<{ bookKey: string }> = ({ bookKey }) => {
               step={0.5}
             />
             <NumberInput
-              className='config-item-top'
               label={_('Letter Spacing')}
               value={letterSpacing}
               onChange={setLetterSpacing}
@@ -277,7 +379,6 @@ const LayoutPanel: React.FC<{ bookKey: string }> = ({ bookKey }) => {
               step={0.1}
             />
             <NumberInput
-              className='config-item-top'
               label={_('Text Indent')}
               value={textIndent}
               onChange={setTextIndent}
@@ -333,7 +434,7 @@ const LayoutPanel: React.FC<{ bookKey: string }> = ({ bookKey }) => {
               label={_('Horizontal Margins (%)')}
               value={gapPercent}
               onChange={setGapPercent}
-              min={0}
+              min={viewSettings.vertical ? 2 : 0}
               max={30}
             />
             <NumberInput
@@ -344,19 +445,20 @@ const LayoutPanel: React.FC<{ bookKey: string }> = ({ bookKey }) => {
               max={4}
             />
             <NumberInput
-              label={_('Maximum Inline Size')}
+              label={viewSettings.vertical ? _('Maximum Column Height') : _('Maximum Column Width')}
               value={maxInlineSize}
               onChange={setMaxInlineSize}
               disabled={maxColumnCount === 1 || viewSettings.scrolled}
-              min={500}
+              min={400}
               max={9999}
               step={100}
             />
             <NumberInput
-              label={_('Maximum Block Size')}
+              label={viewSettings.vertical ? _('Maximum Column Width') : _('Maximum Column Height')}
               value={maxBlockSize}
               onChange={setMaxBlockSize}
-              min={500}
+              disabled={maxColumnCount === 1 || viewSettings.scrolled}
+              min={400}
               max={9999}
               step={100}
             />

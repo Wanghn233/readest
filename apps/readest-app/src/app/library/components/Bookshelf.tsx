@@ -21,9 +21,9 @@ interface BookshelfProps {
   libraryBooks: Book[];
   isSelectMode: boolean;
   handleImportBooks: () => void;
-  handleBookUpload: (book: Book) => void;
-  handleBookDownload: (book: Book) => void;
-  handleBookDelete: (book: Book) => void;
+  handleBookUpload: (book: Book) => Promise<boolean>;
+  handleBookDownload: (book: Book) => Promise<boolean>;
+  handleBookDelete: (book: Book) => Promise<boolean>;
   handleSetSelectMode: (selectMode: boolean) => void;
   handleShowDetailsBook: (book: Book) => void;
   booksTransferProgress: { [key: string]: number | null };
@@ -143,7 +143,7 @@ const Bookshelf: React.FC<BookshelfProps> = ({
       <div
         className={clsx(
           'transform-wrapper grid flex-1 gap-x-4 sm:gap-x-0',
-          'grid-cols-3 sm:grid-cols-4 md:grid-cols-6 xl:grid-cols-8',
+          'grid-cols-3 sm:grid-cols-4 md:grid-cols-6 xl:grid-cols-8 2xl:grid-cols-12',
         )}
       >
         {currentBookshelfItems.map((item, index) => (

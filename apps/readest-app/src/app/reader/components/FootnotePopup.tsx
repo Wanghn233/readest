@@ -1,9 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
 
 import { BookDoc } from '@/libs/document';
+import { useThemeStore } from '@/store/themeStore';
 import { useReaderStore } from '@/store/readerStore';
 import { useFoliateEvents } from '../hooks/useFoliateEvents';
-import { useTheme } from '@/hooks/useTheme';
 import { getFootnoteStyles, getStyles } from '@/utils/style';
 import { getPopupPosition, getPosition, Position } from '@/utils/sel';
 import { eventDispatcher } from '@/utils/event';
@@ -27,7 +27,7 @@ const FootnotePopup: React.FC<FootnotePopupProps> = ({ bookKey, bookDoc }) => {
   const [popupPosition, setPopupPosition] = useState<Position | null>();
   const [showPopup, setShowPopup] = useState(false);
   const { getView, getViewSettings } = useReaderStore();
-  const { themeCode } = useTheme();
+  const { themeCode } = useThemeStore();
   const view = getView(bookKey);
   const viewSettings = getViewSettings(bookKey)!;
   const footnoteHandler = new FootnoteHandler();
@@ -36,6 +36,15 @@ const FootnotePopup: React.FC<FootnotePopupProps> = ({ bookKey, bookDoc }) => {
     const handleBeforeRender = (e: Event) => {
       const detail = (e as CustomEvent).detail;
       const { view } = detail;
+      view.addEventListener('link', (e: Event) => {
+        e.preventDefault();
+        const { detail: popupLinkDetail } = e as CustomEvent;
+        popupLinkDetail['follow'] = true;
+        footnoteHandler.handle(bookDoc, e)?.catch((err) => {
+          console.warn(err);
+          getView(bookKey)?.goTo(popupLinkDetail.href);
+        });
+      });
       footnoteViewRef.current = view;
       footnoteRef.current?.replaceChildren(view);
       const { renderer } = view;
